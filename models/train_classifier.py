@@ -21,6 +21,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import GridSearchCV
 
+stopeng = stopwords.words('english')
 
 def load_data(database_filepath):
     '''
@@ -32,13 +33,12 @@ def load_data(database_filepath):
     - Y target classification
     - col_names category names
     '''
-    engine = create_engine(database_filepath)
+    engine = create_engine('sqlite:///{}'.format(database_filepath))
     df = pd.read_sql_table("disaster_table", con=engine)
     col_names = df.columns[5:]
     X = df.message.values
     Y = df[col_names].values
     return X, Y, col_names
-
 
 def tokenize(text):
     '''
@@ -53,7 +53,7 @@ def tokenize(text):
     # tokenize
     words = word_tokenize(text)
     # lemmatize and remove stopwords
-    result = [WordNetLemmatizer().lemmatize(w) for w in words if w not in stopwords.words('english')]  
+    result = [WordNetLemmatizer().lemmatize(w) for w in words if w not in stopeng]
     return result
 
 
@@ -65,17 +65,18 @@ def build_model():
     - model classifier
     '''
     pipeline = Pipeline([
-        ('vect',CountVectorizer(tokenizer=tokenize)),
+        ('vect', CountVectorizer(tokenizer=tokenize)),
         ('tfidf', TfidfTransformer()),
-        ('clf',MultiOutputClassifier(RandomForestClassifier(n_jobs=-1, n_estimators=100))),
+        ('clf', MultiOutputClassifier(RandomForestClassifier(n_jobs=-2, n_estimators=10))),
     ])
     # GridSearchCV
     parameters = {'vect__max_df': (0.5, 0.75, 1.0),
-              'vect__ngram_range': ((1, 1), (1, 2)),
-              'vect__max_features': (None, 5000, 10000),
-              'tfidf__use_idf': (True, False)}
+                  'vect__ngram_range': ((1, 1), (1, 2)),
+                  'vect__max_features': (None, 5000, 10000),
+                  'tfidf__use_idf': (True, False)
+                  }
 
-    cv = GridSearchCV(pipeline, param_grid=parameters, n_jobs=3, verbose=10)
+    cv = GridSearchCV(pipeline, param_grid=parameters, n_jobs=-2, verbose=10)
     return cv
 
 
@@ -111,13 +112,13 @@ def main():
         print('Loading data...\n    DATABASE: {}'.format(database_filepath))
         X, Y, category_names = load_data(database_filepath)
         X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2)
-        
+
         print('Building model...')
         model = build_model()
-        
+
         print('Training model...')
         model.fit(X_train, Y_train)
-        
+
         print('Evaluating model...')
         evaluate_model(model, X_test, Y_test, category_names)
 
