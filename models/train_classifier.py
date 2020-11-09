@@ -1,24 +1,108 @@
+# import libraries
+# General
 import sys
+import pandas as pd
+import re
+from sqlalchemy import create_engine
+import pickle
+# Natural Languages
+import nltk
+nltk.download(['punkt', 'wordnet', 'averaged_perceptron_tagger'])
+from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
+from nltk.corpus import stopwords
+nltk.download('stopwords')
+# Machine Learning
+from sklearn.pipeline import Pipeline, FeatureUnion
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer, TfidfVectorizer
+from sklearn.multioutput import MultiOutputClassifier
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, GradientBoostingClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.model_selection import GridSearchCV
 
 
 def load_data(database_filepath):
-    pass
+    '''
+    load data from database
+    input:
+    - database filepath
+    output:
+    - X text column
+    - Y target classification
+    - col_names category names
+    '''
+    engine = create_engine(database_filepath)
+    df = pd.read_sql_table("disaster_table", con=engine)
+    col_names = df.columns[5:]
+    X = df.message.values
+    Y = df[col_names].values
+    return X, Y, col_names
 
 
 def tokenize(text):
-    pass
+    '''
+    tokenize, lemmatization and delete stopwords for Machine Learning use.
+    input:
+    - text file
+    output:
+    - a post-processed list of words
+    '''
+    # lowercase and remove punctuation
+    text = re.sub(r'[^A-Za-z0-9]', ' ', text.lower())
+    # tokenize
+    words = word_tokenize(text)
+    # lemmatize and remove stopwords
+    result = [WordNetLemmatizer().lemmatize(w) for w in words if w not in stopwords.words('english')]  
+    return result
 
 
 def build_model():
-    pass
+    '''
+    function to bulid a ML Pipeline
+    no input
+    output:
+    - model classifier
+    '''
+    pipeline = Pipeline([
+        ('vect',CountVectorizer(tokenizer=tokenize)),
+        ('tfidf', TfidfTransformer()),
+        ('clf',MultiOutputClassifier(RandomForestClassifier(n_jobs=-1, n_estimators=100))),
+    ])
+    # GridSearchCV
+    parameters = {'vect__max_df': (0.5, 0.75, 1.0),
+              'vect__ngram_range': ((1, 1), (1, 2)),
+              'vect__max_features': (None, 5000, 10000),
+              'tfidf__use_idf': (True, False)}
+
+    cv = GridSearchCV(pipeline, param_grid=parameters, n_jobs=3, verbose=10)
+    return cv
 
 
 def evaluate_model(model, X_test, Y_test, category_names):
-    pass
+    '''
+    function to report f1 score, precision and recall for each output category of the dataset
+    input:
+    - model trained classifier
+    - X_test
+    - Y_test
+    - category_names
+    output:
+    - detailed evaluation of each categories
+    '''
+    Y_pred = model.predict(X_test)
+    Y_pred = pd.DataFrame(Y_pred)
+    print(classification_report(Y_test, Y_pred, target_names=category_names))
 
 
 def save_model(model, model_filepath):
-    pass
+    '''
+    function to save the model
+    input:
+    - model trained classifier
+    - model_filepath
+    '''
+    pickle.dump(model, open(model_filepath, 'wb'))
 
 
 def main():
