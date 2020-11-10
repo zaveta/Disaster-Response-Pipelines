@@ -15,6 +15,13 @@ from sqlalchemy import create_engine
 app = Flask(__name__)
 
 def tokenize(text):
+    '''
+    tokenize, lemmatization and delete stopwords for Machine Learning use.
+    input:
+    - text file
+    output:
+    - a post-processed list of words
+    '''
     tokens = word_tokenize(text)
     lemmatizer = WordNetLemmatizer()
 
