@@ -22,7 +22,7 @@ Web App to show model results in real-time.
 
 * app
   * run.py: Flask file to run the web application
-  * templates contains html file for the web applicatin
+  * templates contains html file for the web application
 
 ### Requirements
   * Python 3
